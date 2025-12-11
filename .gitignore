@@ -1,3 +1,4 @@
 .env
 *.pyc
 static/processed/
+extracted_files/
