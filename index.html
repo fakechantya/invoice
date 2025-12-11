@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvoiceDB Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Modern Dark Palette */
+            --bg-app: #0f172a;       /* Slate 900 */
+            --bg-panel: #1e293b;     /* Slate 800 */
+            --bg-header: #0f172a;
+            --border: #334155;       /* Slate 700 */
+            
+            /* Theme Colors */
+            --primary: #C5161D;      /* GBL Red */
+            --primary-hover: #a31218;
+            --brand-blue: #004189;   /* GBL Blue */
+            
+            --text-main: #f8fafc;    /* Slate 50 */
+            --text-muted: #94a3b8;   /* Slate 400 */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            
+            /* Syntax Highlighting */
+            --json-key: #9cdcfe;
+            --json-string: #ce9178;
+            --json-number: #b5cea8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        /* --- Header / Toolbar --- */
+        .toolbar {
+            background-color: var(--brand-blue); /* Using Brand Blue for Header */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 24px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            z-index: 20;
+        }
+
+        .brand {
+            font-weight: 600;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+        }
+
+        .brand-logo {
+            height: 36px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .search-container {
+            flex: 1;
+            max-width: 600px;
+            position: relative;
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .filter-select option {
+            background: var(--bg-panel);
+            color: var(--text-main);
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: white;
+        }
+
+        .filter-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .filter-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .filter-input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-color: white;
+        }
+
+        .status-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* --- Status Bar --- */
+        .status-bar {
+            background-color: var(--danger);
+            color: white;
+            padding: 8px 24px;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+            text-align: center;
+        }
+        .status-bar.warning { background-color: var(--warning); color: #1e293b; }
+
+        /* --- Table --- */
+        .table-container {
+            flex: 1;
+            overflow: hidden; 
+            position: relative;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .data-table-wrapper {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: auto; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+            flex: 1;
+            /* Ensure the table header sticks relative to this container */
+            position: relative; 
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background-color: var(--bg-panel); 
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            text-align: left;
+            padding: 16px;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background-color: var(--bg-panel); 
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-main);
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+
+        /* Column Styles */
+        .col-id { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+        .col-file { font-weight: 500; color: var(--text-main); }
+        .col-size { font-size: 12px; color: var(--text-muted); }
+        .col-date { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+        
+        .btn-preview {
+            background: rgba(197, 22, 29, 0.1); /* Red tint */
+            color: var(--primary);
+            border: 1px solid rgba(197, 22, 29, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-preview:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .json-preview-pill {
+            display: inline-block;
+            background: #0f172a;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* --- Pagination --- */
+        .pagination-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 0 4px;
+        }
+
+        .page-btn {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .page-btn:hover:not(:disabled) {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* --- Modal --- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(4px);
+            padding: 40px;
+        }
+
+        .modal-content {
+            background-color: var(--bg-panel);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            width: 100%;
+            height: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: modalSlide 0.3s ease-out;
+        }
+
+        @keyframes modalSlide {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-panel);
+        }
+
+        .modal-title-group h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+        .modal-title-group p { font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+
+        .modal-actions { display: flex; gap: 12px; }
+        
+        .view-toggle {
+            display: flex;
+            background: var(--bg-app);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        .toggle-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+        }
+        
+        .toggle-btn.active {
+            background: var(--bg-panel);
+            color: var(--text-main);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .close-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        .modal-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .pane-image {
+            flex: 1;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-right: 1px solid var(--border);
+        }
+
+        .pane-image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .pane-data {
+            flex: 1;
+            background: var(--bg-panel);
+            overflow: auto;
+            position: relative;
+        }
+
+        /* --- Structured View Styling --- */
+        .invoice-struct { padding: 32px; max-width: 800px; margin: 0 auto; }
+        
+        .inv-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .inv-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .inv-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .inv-card h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .inv-card-content {
+            background: var(--bg-app);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        .info-row:last-child { margin-bottom: 0; }
+        .info-label { color: var(--text-muted); }
+        .info-value { font-weight: 500; text-align: right; }
+
+        .items-table {
+            width: 100%;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+        .items-table th { background: var(--bg-app); padding: 12px; border-bottom: 1px solid var(--border); }
+        .items-table td { padding: 12px; border-bottom: 1px solid var(--border); }
+        .items-table tr:last-child td { border-bottom: none; }
+
+        .summary-section {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .summary-box {
+            width: 300px;
+            background: var(--bg-app);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        /* Raw JSON Pane */
+        .json-raw {
+            padding: 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            display: none; /* Hidden by default */
+        }
+
+        /* --- Loading States --- */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-muted);
+            z-index: 5;
+        }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+    <div id="status-bar" class="status-bar">
+        <span id="status-message"></span>
+    </div>
+
+    <div class="toolbar">
+        <div class="brand">
+            <!-- Ensure this src matches your actual filename (gibl_final.png or gibl_final.png) -->
+            <img src="gibl_final.png" alt="InvoiceDB" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+            <div style="display:none; font-size:20px;">⚡</div>
+            <span>InvoiceDB</span>
+        </div>
+        <div class="search-container">
+            <select id="search-type" class="filter-select">
+                <option value="filename">File Name</option>
+                <option value="id">Log ID</option>
+            </select>
+            <input type="text" id="search-input" class="filter-input" placeholder="Search...">
+        </div>
+        <div class="status-badge">
+             Page <span id="current-page-badge">1</span>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <div class="data-table-wrapper">
+            <table id="logs-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">ID</th>
+                        <th>File Name</th>
+                        <th>Schema Preview</th>
+                        <th style="width: 200px;">Uploaded At</th>
+                        <th style="width: 120px; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Rows injected here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="loading">
+            <div class="spinner"></div>
+            <span>Connecting to Database...</span>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-container">
+            <button id="prev-btn" class="page-btn" onclick="changePage(-1)" disabled>Previous</button>
+            <span class="page-info">Page <span id="page-num">1</span></span>
+            <button id="next-btn" class="page-btn" onclick="changePage(1)">Next</button>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <h2 id="modal-filename">invoice.pdf</h2>
+                    <p id="modal-id">ID: #123</p>
+                </div>
+                
+                <div class="modal-actions">
+                    <div class="view-toggle">
+                        <button class="toggle-btn active" onclick="switchView('structured')">Invoice View</button>
+                        <button class="toggle-btn" onclick="switchView('json')">Raw JSON</button>
+                    </div>
+                    <button class="close-btn" onclick="closeModal()">×</button>
+                </div>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Left: Image -->
+                <div class="pane-image">
+                    <img id="preview-image" src="" alt="Preview">
+                    <div id="image-loader" style="display: none; color: var(--text-muted);">
+                        <div class="spinner" style="margin: 0 auto 10px;"></div>
+                        Loading Preview...
+                    </div>
+                </div>
+
+                <!-- Right: Data -->
+                <div class="pane-data">
+                    <!-- Structured View (Default) -->
+                    <div id="view-structured" class="invoice-struct">
+                        <!-- Content Injected via JS -->
+                    </div>
+
+                    <!-- Raw JSON View -->
+                    <div id="view-json" class="json-raw">
+                        <!-- Content Injected via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_PATH = '/api'; 
+        
+        // State
+        let currentPage = 1;
+        const LIMIT = 10;
+        let searchTimeout = null;
+
+        // Sample mock data for fallback display
+        const MOCK_LOGS = [
+            {
+                id: 901,
+                filename: "invoice_304.jpg",
+                created_at: new Date(Date.now() - 3600000).toISOString(),
+                extracted_schema_content: { 
+                    invoice_number: "INV-2023-001",
+                    invoice_date_ad: "2023-10-25",
+                    vendor_info: { name_english: "Tech Solutions Inc.", address: "Kathmandu, Nepal", vat_number: "604928111" },
+                    customer_info: { name: "John Doe Enterprises", address: "Lalitpur", vat_number: "302911002" },
+                    line_items: [
+                        { description: "Server Rack 4U", quantity: "2", unit_price: "15000", total_price: "30000" },
+                        { description: "Installation Fee", quantity: "1", unit_price: "5000", total_price: "5000" }
+                    ],
+                    summary: { subtotal: "35000.00", tax_amount: "4550.00", total_amount_due: "39550.00" }
+                },
+                file_size: 154700
+            }
+        ];
+
+        function showStatus(message, isError = false) {
+            const statusBar = document.getElementById('status-bar');
+            const statusMessage = document.getElementById('status-message');
+            
+            statusMessage.innerText = message;
+            statusBar.classList.toggle('warning', !isError);
+            statusBar.style.display = 'block';
+        }
+
+        async function fetchLogs() {
+            const loadingElement = document.getElementById('loading');
+            loadingElement.style.display = 'flex';
+            
+            const searchType = document.getElementById('search-type').value;
+            const searchText = document.getElementById('search-input').value;
+            
+            // Calculate Skip
+            const skip = (currentPage - 1) * LIMIT;
+
+            // Build Query Params
+            const params = new URLSearchParams({
+                skip: skip,
+                limit: LIMIT,
+                type: searchType
+            });
+            
+            if (searchText) {
+                params.append('search', searchText);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_PATH}/logs?${params.toString()}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const logs = await response.json();
+                renderTable(logs);
+                updatePaginationControls(logs.length);
+                document.getElementById('status-bar').style.display = 'none';
+            } catch (error) {
+                console.error("Backend connection failed. Displaying mock data.", error);
+                renderTable(MOCK_LOGS);
+                showStatus(`⚠️ Connection Error: Could not reach backend at ${API_BASE_PATH}/logs. Showing mock data.`, false);
+            } finally {
+                loadingElement.style.display = 'none';
+            }
+        }
+
+        function updatePaginationControls(fetchedCount) {
+            document.getElementById('page-num').innerText = currentPage;
+            document.getElementById('current-page-badge').innerText = currentPage;
+            
+            // Disable Prev if on page 1
+            document.getElementById('prev-btn').disabled = (currentPage === 1);
+            
+            // Disable Next if we fetched fewer items than limit (implies end of list)
+            document.getElementById('next-btn').disabled = (fetchedCount < LIMIT);
+        }
+
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage < 1) return;
+            currentPage = newPage;
+            fetchLogs();
+        }
+
+        // Search Event Listeners
+        document.getElementById('search-input').addEventListener('input', () => {
+            // Debounce search
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1; // Reset to page 1 on search
+                fetchLogs();
+            }, 400);
+        });
+
+        document.getElementById('search-type').addEventListener('change', () => {
+            currentPage = 1;
+            fetchLogs();
+        });
+
+        function formatBytes(bytes) {
+            if (!+bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+        }
+
+        function renderTable(logs) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (logs.length === 0) {
+                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted);">No documents found matching criteria.</td></tr>';
+                 return;
+            }
+
+            logs.forEach((log) => {
+                const tr = document.createElement('tr');
+                const sizeStr = formatBytes(log.file_size || 0);
+                const dateStr = new Date(log.created_at).toLocaleDateString() + ' ' + new Date(log.created_at).toLocaleTimeString();
+                
+                tr.innerHTML = `
+                    <td class="col-id">#${log.id}</td>
+                    <td>
+                        <div class="col-file">${log.filename}</div>
+                        <div class="col-size">${sizeStr}</div>
+                    </td>
+                    <td>
+                        <div class="json-preview-pill">
+                             ${JSON.stringify(log.extracted_schema_content)}
+                        </div>
+                    </td>
+                    <td class="col-date">${dateStr}</td>
+                    <td style="text-align: right;">
+                        <button class="btn-preview" onclick="openPreview(${log.id}, '${log.filename.replace(/'/g, "\\'")}', this)">
+                            View details
+                        </button>
+                    </td>
+                `;
+                tr.dataset.json = JSON.stringify(log.extracted_schema_content);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- Structured View Rendering ---
+        function renderStructuredView(data) {
+            const container = document.getElementById('view-structured');
+            const val = (v) => v || '<span style="color:var(--text-muted); font-style:italic;">N/A</span>';
+
+            let html = `
+                <div class="inv-header">
+                    <div>
+                        <div class="inv-title">Invoice #${val(data.invoice_number)}</div>
+                        <div style="color: var(--text-muted);">Date: ${val(data.invoice_date_ad)}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">REFERENCE</div>
+                        <div>${val(data.reference_number)}</div>
+                    </div>
+                </div>
+                <div class="inv-grid">
+                    <div class="inv-card">
+                        <h3>Vendor Information</h3>
+                        <div class="inv-card-content">
+                            <div class="info-row"><span class="info-label">Name:</span> <span class="info-value">${val(data.vendor_info?.name_english)}</span></div>
+                            <div class="info-row"><span class="info-label">Address:</span> <span class="info-value">${val(data.vendor_info?.address)}</span></div>
+                            <div class="info-row"><span class="info-label">VAT/PAN:</span> <span class="info-value">${val(data.vendor_info?.vat_number)}</span></div>
+                            <div class="info-row"><span class="info-label">Phone:</span> <span class="info-value">${val(data.vendor_info?.phone)}</span></div>
+                        </div>
+                    </div>
+                    <div class="inv-card">
+                        <h3>Customer Information</h3>
+                        <div class="inv-card-content">
+                            <div class="info-row"><span class="info-label">Name:</span> <span class="info-value">${val(data.customer_info?.name)}</span></div>
+                            <div class="info-row"><span class="info-label">Address:</span> <span class="info-value">${val(data.customer_info?.address)}</span></div>
+                            <div class="info-row"><span class="info-label">VAT/PAN:</span> <span class="info-value">${val(data.customer_info?.vat_number)}</span></div>
+                        </div>
+                    </div>
+                </div>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Description</th>
+                            <th style="width: 80px; text-align: center;">Qty</th>
+                            <th style="width: 100px; text-align: right;">Unit Price</th>
+                            <th style="width: 120px; text-align: right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            if (data.line_items && data.line_items.length > 0) {
+                data.line_items.forEach(item => {
+                    html += `
+                        <tr>
+                            <td>${val(item.description)}</td>
+                            <td style="text-align: center;">${val(item.quantity)}</td>
+                            <td style="text-align: right;">${val(item.unit_price)}</td>
+                            <td style="text-align: right;">${val(item.total_price)}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += `<tr><td colspan="4" style="text-align:center; padding: 20px;">No line items extracted.</td></tr>`;
+            }
+
+            html += `</tbody></table>
+                <div class="summary-section">
+                    <div class="summary-box">
+                        <div class="info-row"><span class="info-label">Subtotal:</span> <span class="info-value">${val(data.summary?.subtotal)}</span></div>
+                        <div class="info-row"><span class="info-label">Tax:</span> <span class="info-value">${val(data.summary?.tax_amount)}</span></div>
+                        <div class="info-row"><span class="info-label">Discount:</span> <span class="info-value">${val(data.summary?.discount_amount)}</span></div>
+                        <div class="total-row">
+                            <span>Total Due:</span>
+                            <span>${val(data.summary?.total_amount_due)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function openPreview(id, filename, btnElement) {
+            const modal = document.getElementById('preview-modal');
+            const img = document.getElementById('preview-image');
+            const rawJsonDiv = document.getElementById('view-json');
+            const loader = document.getElementById('image-loader');
+            
+            document.getElementById('modal-filename').innerText = filename;
+            document.getElementById('modal-id').innerText = `ID: #${id}`;
+
+            const tr = btnElement.closest('tr');
+            const jsonData = JSON.parse(tr.dataset.json);
+
+            renderStructuredView(jsonData);
+            rawJsonDiv.innerHTML = syntaxHighlight(jsonData);
+            switchView('structured');
+
+            img.style.display = 'none';
+            loader.style.display = 'block';
+            
+            if (id >= 900) {
+                loader.innerHTML = "<div class='spinner'></div><span>Mock Data Mode (No Image)</span>";
+            } else {
+                img.src = `${API_BASE_PATH}/logs/${id}/preview`; 
+                img.onload = () => {
+                    loader.style.display = 'none';
+                    img.style.display = 'block';
+                };
+                img.onerror = () => {
+                    loader.innerText = "Failed to load image.";
+                };
+            }
+            modal.style.display = 'block';
+        }
+
+        function switchView(viewName) {
+            const structDiv = document.getElementById('view-structured');
+            const jsonDiv = document.getElementById('view-json');
+            const btns = document.querySelectorAll('.toggle-btn');
+
+            if (viewName === 'structured') {
+                structDiv.style.display = 'block';
+                jsonDiv.style.display = 'none';
+                btns[0].classList.add('active');
+                btns[1].classList.remove('active');
+            } else {
+                structDiv.style.display = 'none';
+                jsonDiv.style.display = 'block';
+                btns[0].classList.remove('active');
+                btns[1].classList.add('active');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('preview-modal').style.display = 'none';
+            document.getElementById('preview-image').src = "";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('preview-modal')) {
+                closeModal();
+            }
+        }
+
+        function syntaxHighlight(json) {
+            if (typeof json != 'string') json = JSON.stringify(json, undefined, 2);
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                var cls = 'color: var(--json-number);';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) cls = 'color: var(--json-key);';
+                    else cls = 'color: var(--json-string);';
+                } else if (/true|false/.test(match)) cls = 'color: #569cd6;';
+                else if (/null/.test(match)) cls = 'color: #569cd6;';
+                return '<span style="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        fetchLogs();
+    </script>
+</body>
+</html>
